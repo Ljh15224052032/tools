@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RGB → CMYK 校色工具</title>
+<style>
+  :root{
+    --bg:#f5f5f7;
+    --card:#ffffff;
+    --ink:#1d1d1f;
+    --ink-2:#6e6e73;
+    --ink-3:#a1a1a6;
+    --line:rgba(0,0,0,.08);
+    --accent:#0071e3;
+    --accent-press:#005bb8;
+    --success:#34c759;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(0,0,0,.04), 0 12px 32px rgba(0,0,0,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"PingFang SC","Helvetica Neue",Arial,sans-serif;
+    background:var(--bg);color:var(--ink);
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+    line-height:1.5;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:48px 24px 72px}
+
+  /* ---------- Accuracy / limitation notice ---------- */
+  .limits{margin-bottom:24px;border:1px solid rgba(255,149,0,.28)}
+  .limits-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+  .warn-dot{width:9px;height:9px;border-radius:50%;background:#ff9500;flex:none}
+  .limits-badge{font:600 11px/1 -apple-system,sans-serif;color:#b4680b;background:rgba(255,149,0,.12);padding:5px 10px;border-radius:980px}
+  .limits-note{font-size:12.5px;color:var(--ink-2);line-height:1.65;margin-bottom:12px}
+  .oktab{width:100%;border-collapse:collapse;font-size:12.5px}
+  .oktab td{padding:8px 4px;border-bottom:1px solid var(--line);color:var(--ink)}
+  .oktab tr:last-child td{border-bottom:none}
+  .oktab td.r{text-align:right;white-space:nowrap;padding-left:14px;font-weight:600}
+  .ok{color:#34c759}.mid{color:#ff9500}.bad{color:#ff3b30}
+  .limits-cause{font-size:12px;color:var(--ink-2);line-height:1.6;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+  .limits-sure{margin-top:10px;font-size:12.5px;color:var(--ink);line-height:1.7;background:#f5f5f7;border-left:3px solid #ff9500;border-radius:4px;padding:10px 12px}
+  .limits-sure .step{display:block;margin-top:2px}
+
+  /* ---------- Header ---------- */
+  header{margin-bottom:36px}
+  header h1{font-size:28px;font-weight:650;letter-spacing:-.02em}
+  header p{color:var(--ink-2);font-size:13px;margin-top:6px}
+  header p b{color:var(--ink)}
+
+  /* ---------- Card base ---------- */
+  .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px}
+  .card-label{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ink-2);margin-bottom:4px;letter-spacing:.01em}
+  .card-label .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .card-sub{font-size:12px;color:var(--ink-3);margin-bottom:16px}
+
+  /* ---------- Row layout (RGB target | convert | CMYK) ---------- */
+  .row{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;align-items:stretch}
+  .col{display:flex;flex-direction:column}
+
+  /* Convert pill */
+  .convert{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:0 4px}
+  .convert-btn{
+    appearance:none;border:none;cursor:pointer;
+    background:var(--accent);color:#fff;
+    font:600 13px/1 -apple-system,sans-serif;
+    padding:11px 18px;border-radius:980px;letter-spacing:.02em;
+    transition:background .15s ease, transform .1s ease;
+    white-space:nowrap;
+  }
+  .convert-btn:hover{background:var(--accent-press)}
+  .convert-btn:active{transform:scale(.97)}
+  .convert-btn:disabled{background:#b9d7f5;cursor:default}
+
+  /* ---------- Swatch ---------- */
+  .swatch{position:relative;height:150px;border-radius:var(--radius-sm);margin-bottom:14px;
+    box-shadow:inset 0 0 0 1px var(--line)}
+  .swatch .chips{position:absolute;left:10px;bottom:10px;display:flex;gap:5px;flex-wrap:wrap}
+  .chip{font:600 11px/1 SFMono-Regular,Consolas,Menlo,monospace;color:#fff;
+    background:rgba(0,0,0,.38);backdrop-filter:blur(4px);
+    padding:4px 6px;border-radius:6px;letter-spacing:.02em}
+  .chip.on-dark{color:var(--ink)}
+  .match-badge{position:absolute;right:10px;top:10px;font:700 12px/1 -apple-system,sans-serif;
+    padding:6px 9px;border-radius:980px;color:#fff}
+
+  /* ---------- Field rows ---------- */
+  .field{display:flex;align-items:center;gap:10px;margin-top:12px}
+  .field:first-of-type{margin-top:0}
+  .field .tag{flex:none;width:18px;font:600 12px/1 SFMono-Regular,Menlo,monospace;color:var(--ink-3);text-align:center}
+  .field .kind{flex:none;width:34px;font-size:12px;color:var(--ink-2)}
+  .field input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:22px;background:transparent;cursor:pointer}
+  .field input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:var(--track,#e8e8ed)}
+  .field input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+    width:20px;height:20px;border-radius:50%;margin-top:-8px;
+    background:#fff;border:1px solid rgba(0,0,0,.12);box-shadow:0 1px 4px rgba(0,0,0,.2)}
+  .field input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:var(--track,#e8e8ed)}
+  .field input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#fff;border:1px solid rgba(0,0,0,.12)}
+  .field .value{flex:none;width:56px;font:600 13px/1 SFMono-Regular,Menlo,monospace;color:var(--ink);text-align:right}
+  .hex-input{flex:1;font:600 14px/1.2 SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.04em;
+    border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);background:#fafafa;
+    text-transform:uppercase;outline:none;transition:border-color .15s ease,box-shadow .15s ease}
+  .hex-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,113,227,.15);background:#fff}
+
+  /* ---------- Toggle / segmented ---------- */
+  .seg{display:inline-flex;background:#e8e8ed;border-radius:980px;padding:2px;gap:2px}
+  .seg button{border:none;background:transparent;font:13px/.1 -apple-system,sans-serif;
+    padding:6px 14px;border-radius:980px;color:var(--ink-2);cursor:pointer;transition:all .15s ease}
+  .seg button.active{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+
+  /* ---------- Buttons ---------- */
+  .btn-mini{border:1px solid var(--line);background:#fff;color:var(--ink);
+    font:12px/1 -apple-system,sans-serif;padding:7px 12px;border-radius:8px;cursor:pointer;transition:all .15s ease}
+  .btn-mini:hover{background:#f5f5f7}
+  .btn-mini:active{transform:scale(.98)}
+  .btn-mini.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn-mini.primary:hover{background:var(--accent-press)}
+  .btn-row{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+
+  /* Second row: adjustable match card */
+  .match-card{margin-top:18px;padding:24px}
+  .match-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px}
+  .match-title .card-label{margin-bottom:4px}
+  .match-metric{display:flex;align-items:center;gap:12px}
+  .metric-bar{width:150px;height:6px;border-radius:3px;background:#e8e8ed;overflow:hidden}
+  .metric-fill{height:100%;border-radius:3px;background:var(--success);transition:width .25s ease,background .25s ease}
+  .metric-num{font:700 20px/1 SFMono-Regular,Menlo,monospace;letter-spacing:-.02em;min-width:44px;text-align:right;color:var(--success)}
+  .metric-num.warn{color:#ff9500}
+  .metric-num.bad{color:#ff3b30}
+
+  .match-grid{display:grid;grid-template-columns:1fr 1.6fr;gap:26px;align-items:center}
+  .match-swatch{height:220px;border-radius:var(--radius-sm);box-shadow:inset 0 0 0 1px var(--line);position:relative}
+  .match-swatch .copy{position:absolute;left:12px;bottom:12px;font:600 12px/1 SFMono-Regular,Menlo,monospace;
+    color:#fff;background:rgba(0,0,0,.38);backdrop-filter:blur(4px);padding:5px 8px;border-radius:6px}
+  .match-controls .hint{font-size:12px;color:var(--ink-2);margin-bottom:6px}
+  .match-final{display:flex;align-items:center;gap:12px;margin-top:20px;padding-top:16px;
+    border-top:1px solid var(--line);flex-wrap:wrap}
+  .match-final .lab{font-size:12px;color:var(--ink-2);font-weight:600}
+  .match-final .cmyk-list{display:flex;gap:8px;flex-wrap:wrap}
+  .final-chip{cursor:pointer;font:600 13px/1 SFMono-Regular,Menlo,monospace;color:var(--ink);
+    background:#f5f5f7;border:none;padding:7px 12px;border-radius:8px;transition:all .15s ease}
+  .final-chip:hover{background:#e8e8ed}
+  .final-chip:active{transform:scale(.97)}
+
+  /* Copy toast */
+  .toast{position:fixed;left:50%;bottom:32px;transform:translateX(-50%) translateY(20px);
+    background:rgba(0,0,0,.82);color:#fff;font-size:13px;padding:10px 18px;border-radius:10px;
+    opacity:0;pointer-events:none;transition:opacity .25s ease,transform .25s ease}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  footer{margin-top:28px;color:var(--ink-3);font-size:11px;line-height:1.6}
+
+  @media (max-width:820px){
+    .row{grid-template-columns:1fr}
+    .convert{flex-direction:row;justify-content:center;height:auto}
+    .match-grid{grid-template-columns:1fr}
+    .wrap{padding:32px 16px 56px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>RGB → CMYK 校色</h1>
+    <p><b>目标色</b>（来自 Figma 等）转为印刷用 <b>CMYK</b>。屏幕色块为<b>印刷观感模拟</b>，仅供方向性参考；精度与限制、如何获得准确结果见下方说明。</p>
+  </header>
+
+  <!-- Accuracy / limitation notice -->
+  <section class="card limits">
+    <div class="limits-head">
+      <div class="card-label"><span class="warn-dot"></span>精度与限制 · 使用前请先读</div>
+      <span class="limits-badge">方向性筛查，非精确打样</span>
+    </div>
+    <div class="limits-note">本工具用于<b>方向性筛查</b>，不能在屏幕上真实还原印刷色。任何网页模拟（含本工具）都无法替代 ICC 软打样与实物打样。</div>
+    <table class="oktab">
+      <tr><td>判断印刷后大致的变暗 / 变闷 / 偏色方向</td><td class="r ok">可靠 · 方向性</td></tr>
+      <tr><td>识别印不出来的超色域颜色（自动警告）</td><td class="r ok">可靠</td></tr>
+      <tr><td>作为给工厂的起始 CMYK 参考</td><td class="r mid">参考</td></tr>
+      <tr><td>精确匹配印刷效果，并据此定版</td><td class="r bad">不可靠 · 勿定版</td></tr>
+    </table>
+    <div class="limits-cause">为何达不到高精度：屏幕发 RGB 光、纸张反射油墨，两者物理上无法一致；本工具不含 ICC 配置，仅按涂布纸粗略近似，换打印机或纸张即失效。即使使用正确 ICC + 校准显示器，行业标准通常也只有 ΔE≈2–5，并非"95% 一致"。</div>
+    <div class="limits-sure"><b>要真正准确，请：</b>
+      <span class="step">1. 向工厂索要其 ICC 配置文件，在 Photoshop 「视图 → 校样设置」中软打样</span>
+      <span class="step">2. 关键色做实物打样（contract proof）</span>
+      <span class="step">3. 关键色改用专色 Pantone，而非流程四色</span>
+    </div>
+  </section>
+
+  <!-- Row 1: RGB target | convert | CMYK -->
+  <div class="row">
+    <!-- Left: target RGB -->
+    <div class="card col">
+      <div class="card-label"><span class="dot" style="background:#0071e3"></span>目标色 · RGB</div>
+      <div class="card-sub">输入或取色，作为校对的基准</div>
+      <div class="swatch" id="sw-rgb"><span class="match-badge" style="display:none;background:#ff3b30" id="rgb-gamut">超色域</span><div class="chips">
+        <span class="chip" id="rgb-chip"></span>
+      </div></div>
+      <div class="card-sub" id="gamut-warn" style="display:none;color:#ff3b30;margin-bottom:0;margin-top:10px;padding:8px 10px;background:rgba(255,59,48,.08);border-left:3px solid #ff3b30;border-radius:4px"></div>
+      <div class="field"><span class="tag" style="background:#ff3b30;color:#fff;border-radius:4px">R</span>
+        <input type="range" id="r" min="0" max="255" value="220">
+        <input class="value" id="rnum" type="number" min="0" max="255" value="220">
+      </div>
+      <div class="field"><span class="tag" style="background:#34c759;color:#fff;border-radius:4px">G</span>
+        <input type="range" id="g" min="0" max="255" value="120">
+        <input class="value" id="gnum" type="number" min="0" max="255" value="120">
+      </div>
+      <div class="field"><span class="tag" style="background:#007aff;color:#fff;border-radius:4px">B</span>
+        <input type="range" id="b" min="0" max="255" value="40">
+        <input class="value" id="bnum" type="number" min="0" max="255" value="40">
+      </div>
+      <div class="field" style="margin-top:14px">
+        <span class="kind" style="width:auto;font-weight:600">HEX</span>
+        <input class="hex-input" id="hex" value="#D87828" maxlength="7" spellcheck="false" autocomplete="off"
+          placeholder="#RRGGBB" inputmode="text">
+        <button class="btn-mini" id="copyhex" title="复制 HEX 色号">复制</button>
+      </div>
+      <div class="btn-row">
+        <input type="color" id="picker" value="#d87828" style="width:60px;height:30px;border:none;background:none;padding:0;cursor:pointer">
+        <button class="btn-mini" id="eyedrop">屏幕取色</button>
+        <button class="btn-mini" id="random">随机</button>
+      </div>
+    </div>
+
+    <!-- Center: convert -->
+    <div class="convert">
+      <button class="convert-btn" id="convert">转换 CMYK</button>
+      <button class="btn-mini" id="swap" style="font:11px/1 -apple-system,sans-serif;color:var(--ink-3)" title="复制右侧 CK 到校对区">复制 → 校对</button>
+    </div>
+
+    <!-- Right: auto CMYK -->
+    <div class="card col">
+      <div class="card-label"><span class="dot" style="background:#ff9500"></span>自动转换 · CMYK</div>
+      <div class="card-sub">算法近似值，色差仅作参考</div>
+      <div class="swatch" id="sw-cmyk"><div class="chips">
+        <span class="chip" id="cmyk-chip"></span>
+      </div></div>
+      <div class="field"><span class="kind">C</span><span class="value" id="cval" style="width:auto;text-align:left;width:62px">—</span>
+        <span class="kind" style="margin-left:4px">M</span><span class="value" id="mval" style="width:auto;text-align:left;width:62px">—</span></div>
+      <div class="field"><span class="kind">Y</span><span class="value" id="yval" style="width:auto;text-align:left;width:62px">—</span>
+        <span class="kind" style="margin-left:4px">K</span><span class="value" id="kval" style="width:auto;text-align:left;width:62px">—</span></div>
+      <div class="card-sub" id="cmyk-note" style="margin-top:14px;margin-bottom:0">尚未转换</div>
+    </div>
+  </div>
+
+  <!-- Row 2: adjustable match -->
+  <div class="card match-card">
+    <div class="match-head">
+      <div class="match-title">
+        <div class="card-label"><span class="dot" style="background:#34c759"></span>校对色 · CMYK 微调 · 送印值</div>
+        <div class="card-sub" style="margin:0">已复制自动转换结果，拖动下方滑块使其尽量贴近目标色</div>
+      </div>
+      <div class="match-metric">
+        <span style="font-size:12px;color:var(--ink-2)">匹配度</span>
+        <div class="metric-bar"><div class="metric-fill" id="metricFill" style="width:0%"></div></div>
+        <div class="metric-num bad" id="metricNum">0%</div>
+      </div>
+    </div>
+
+    <div class="match-grid">
+      <div class="match-swatch" id="sw-match"><span class="copy" id="match-chip"></span></div>
+      <div class="match-controls">
+        <div class="hint">拖动微调，实时对比右侧色块与匹配度</div>
+        <div class="field"><span class="tag" style="background:#00bfe0;color:#fff;border-radius:4px">C</span>
+          <input type="range" id="cr" min="0" max="100" value="0">
+          <input class="value" id="crnum" type="number" min="0" max="100" value="0">
+        </div>
+        <div class="field"><span class="tag" style="background:#e14b8a;color:#fff;border-radius:4px">M</span>
+          <input type="range" id="mr" min="0" max="100" value="0">
+          <input class="value" id="mrnum" type="number" min="0" max="100" value="0">
+        </div>
+        <div class="field"><span class="tag" style="background:#ffd60a;color:#1d1d1f;border-radius:4px">Y</span>
+          <input type="range" id="yr" min="0" max="100" value="0">
+          <input class="value" id="yrnum" type="number" min="0" max="100" value="0">
+        </div>
+        <div class="field"><span class="tag" style="background:#1d1d1f;color:#fff;border-radius:4px">K</span>
+          <input type="range" id="kr" min="0" max="100" value="0">
+          <input class="value" id="krnum" type="number" min="0" max="100" value="0">
+        </div>
+
+        <div class="match-final">
+          <span class="lab">送印值</span>
+          <div class="cmyk-list">
+            <button class="final-chip" data-chip="C">C · —</button>
+            <button class="final-chip" data-chip="M">M · —</button>
+            <button class="final-chip" data-chip="Y">Y · —</button>
+            <button class="final-chip" data-chip="K">K · —</button>
+            <button class="final-chip" data-chip="ALL" style="color:var(--accent)">复制全部</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>右侧 CMYK 色块为<b>印刷观感模拟</b>（Beer-Lambert 减色吸收 + 网点增益，按涂布纸近似），不再与目标色相等；高饱和/超色域颜色会明显变暗变闷并触发警告。屏幕发 RGB 光、纸张反射油墨，物理上无法完全一致——最准确仍以工厂 ICC 配置文件 + 实物打样为准。给工厂的 CMYK 数值始终按理想减法计算。</footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---- state ----
+  var S = { rgb:{r:220,g:120,b:40}, cmyk:null, adj:{c:0,m:0,y:0,k:0} };
+
+  // ---- DOM helpers ----
+  function $(id){return document.getElementById(id);}
+  var rR=$('r'),rG=$('g'),rB=$('b'),rRn=$('rnum'),rGn=$('gnum'),rBn=$('bnum'),
+      cr=$('cr'),mr=$('mr'),yr=$('yr'),kr=$('kr'),crn=$('crnum'),mrn=$('mrnum'),yrn=$('yrnum'),krn=$('krnum');
+
+  function luma(r,g,b){return (0.2126*r+0.7152*g+0.0722*b)/255;}
+
+  // ---- conversion ----
+  function rgbToCmyk(r,g,b){
+    r/=255;g/=255;b/=255;
+    var c=1-r,m=1-g,y=1-b;
+    var k=Math.min(c,m,y);
+    var d=(1-k)||1;
+    return {c:Math.round((c-k)/d*100),m:Math.round((m-k)/d*100),
+            y:Math.round((y-k)/d*100),k:Math.round(k*100)};
+  }
+  function hex(rgb){return '#'+[rgb.r,rgb.g,rgb.b].map(function(v){return ('0'+Math.round(v).toString(16)).slice(-2);}).join('');}
+
+  function clamp1(x){return x<0?0:(x>1?1:x);}
+
+  // ---- 真实印刷渲染模型（近似：涂布纸 / offset 四色墨水）----
+  // 显示器本身只能发 RGB 光，无法"真实"呈现 CMYK。旧版用理想减法做无损往返，
+  // 导致转出来的色块和目标色几乎一样——那是假象。这里用
+  // 「Beer-Lambert 减色吸收 + Murray-Davies 网点增益 + 纸张白点 + 油墨不纯」模拟
+  // 真实在纸上的观感：高饱和色会变暗变闷，部分颜色印不出来（超色域）。
+  function dotgain(a){a/=100;return a+0.4*a*(1-a);} // 网点增益，50% 处约 +10%
+  function cmykToRgbPrint(c,m,y,k){
+    // 四色：各自的网点面积、满版油墨反射密度、对 RGB 三通道的吸收系数[受R,受G,受B]
+    var inks=[
+      {a:dotgain(c),d:0.95,s:[1.00,0.14,0.08]}, // 青：主吸收红，轻微溢 G/B
+      {a:dotgain(m),d:0.78,s:[0.12,1.00,0.08]}, // 品红：主吸收绿，轻微溢 R/B
+      {a:dotgain(y),d:0.38,s:[0.05,0.10,1.00]}, // 黄：主吸收蓝，轻微溢 R/G
+      {a:dotgain(k),d:1.30,s:[1,1,1]}           // 黑：均匀吸收
+    ];
+    var paper=0.93; // 纸张白点（非纯白）
+    // Murray-Davies：EACH 色板在「纸(不吸收)」与「满版油墨(吸收)」间按网点面积线性混合，再跨色相乘。
+    // 这样中间调不会像直接用指数密度那样被压得过暗。
+    function ch(ci){
+      var t=1;
+      for(var i=0;i<4;i++){
+        var ink=inks[i];
+        t *= (1-ink.a) + ink.a*Math.pow(10,-ink.d*ink.s[ci]);
+      }
+      return Math.round(clamp1(paper*t)*255);
+    }
+    return {r:ch(0),g:ch(1),b:ch(2)};
+  }
+
+  // ---- sRGB -> CIE Lab + ΔE76（用于判断"能否印得出来"/色差） ----
+  function srgb2lab(ri,gi,bi){
+    function lin(c){c/=255;return c<=0.04045?c/12.92:Math.pow((c+0.055)/1.055,2.4);}
+    var r=lin(ri),g=lin(gi),b=lin(bi);
+    var X=(r*0.4124+g*0.3576+b*0.1805)/0.95047;
+    var Y=(r*0.2126+g*0.7152+b*0.0722);
+    var Z=(r*0.0193+g*0.1192+b*0.9505)/1.08883;
+    function g2t(t){return t>0.008856?Math.pow(t,1/3):(7.787*t+16/116);}
+    var fx=g2t(X),fy=g2t(Y),fz=g2t(Z);
+    return {L:116*fy-16,a:500*(fx-fy),bB:200*(fy-fz)};
+  }
+  function deltaE76(a,b){return Math.sqrt(Math.pow(a.L-b.L,2)+Math.pow(a.a-b.a,2)+Math.pow(a.bB-b.bB,2));}
+
+  // 目标色按"理想 CMYK"转成印刷观感后，和目标色本身的色差（ΔE76）。
+  // 数值大 → 印刷色域无法还原该色。
+  function printDeltaE(rgb){
+    var cmyk=rgbToCmyk(rgb.r,rgb.g,rgb.b);
+    var pr=cmykToRgbPrint(cmyk.c,cmyk.m,cmyk.y,cmyk.k);
+    return deltaE76(srgb2lab(rgb.r,rgb.g,rgb.b),srgb2lab(pr.r,pr.g,pr.b));
+  }
+
+  // match: normalized rgb distance -> 0..100（基于印刷观感色）
+  function match(a,b){
+    var dr=a.r-b.r,dg=a.g-b.g,db=a.b-b.b;
+    var d=Math.sqrt((dr*dr+dg*dg+db*db)/3)/255;
+    return Math.round((1-d)*100);
+  }
+
+  // ---- fill slider track ----
+  function fill(el,ratio,color){
+    el.style.background='linear-gradient(90deg,'+color+' 0%,'+color+' '+ratio+'%, #e8e8ed '+ratio+'%)';
+  }
+
+  // ---- render ----
+  function renderRGB(){
+    var r=clamp(+rRn.value),g=clamp(+rGn.value),b=clamp(+rBn.value);
+    rR.value=r;rG.value=g;rB.value=b;
+    S.rgb={r:r,g:g,b:b};
+    var c=hex(S.rgb);
+    $('sw-rgb').style.background=c;
+    $('rgb-chip').textContent=c.toUpperCase();
+    fill(rR,r/255,'#ff3b30');fill(rG,g/255,'#34c759');fill(rB,b/255,'#007aff');
+    $('picker').value=c;
+    $('hex').value=c.toUpperCase();
+    var lc=luma(r,g,b)>.55;
+    $('rgb-chip').style.color=lc? '#1d1d1f':'#fff';
+    // 超色域警告：理想 CMYK 在印刷观感下无法还原目标色
+    var de=printDeltaE(S.rgb);
+    var warn=de>12;
+    $('rgb-gamut').style.display=warn? 'block':'none';
+    var gw=$('gamut-warn');
+    if(warn){
+      gw.style.display='block';
+      gw.innerHTML='无法完全用四色油墨印出此色（偏差 ΔE≈'+Math.round(de)+'）。实际印刷会明显偏暗/偏灰，建议打样或改用专色（Pantone）。';
+    }else{
+      gw.style.display='none';
+    }
+    updateMatch();
+  }
+  function clamp(v){if(isNaN(v))return 0;return Math.max(0,Math.min(255,Math.round(v)));}
+
+  function renderAdj(fromCMYK){
+    var c=+crn.value,m=+mrn.value,y=+yrn.value,k=+krn.value;
+    cr.value=c;mr.value=m;yr.value=y;kr.value=k;
+    S.adj={c:c,m:m,y:y,k:k};
+    var rgb=cmykToRgbPrint(c,m,y,k);
+    var col=hex(rgb);
+    $('sw-match').style.background=col;
+    $('match-chip').textContent='CMYK '+c+' '+m+' '+y+' '+k;
+    var ch=$('match-chip'); ch.style.color=luma(rgb.r,rgb.g,rgb.b)>.55? '#1d1d1f':'#fff';
+    fill(cr,c,'#00bfe0');fill(mr,m,'#e14b8a');fill(yr,y,'#ffd60a');fill(kr,k,'#2c2c2e');
+    setFinal();
+    updateMatch();
+  }
+
+  function setFinal(){
+    var s=S.adj,c='C '+s.c,B='M '+s.m, y='Y '+s.y, k='K '+s.k;
+    var chips=document.querySelectorAll('.final-chip');
+    var map={'C':'C · '+s.c,'M':'M · '+s.m,'Y':'Y · '+s.y,'K':'K '+s.k,'ALL':''};
+    for(var i=0;i<chips.length;i++){
+      var kk=chips[i].getAttribute('data-chip');
+      if(kk==='C')chips[i].textContent='C · '+s.c;
+      else if(kk==='M')chips[i].textContent='M · '+s.m;
+      else if(kk==='Y')chips[i].textContent='Y · '+s.y;
+      else if(kk==='K')chips[i].textContent='K · '+s.k;
+      else chips[i].textContent='复制全部';
+    }
+  }
+
+  function updateMatch(){
+    var a=S.rgb, adj=S.adj;
+    var b=cmykToRgbPrint(adj.c,adj.m,adj.y,adj.k);
+    var m=match(a,b);
+    var num=$('metricNum');
+    num.textContent=m+'%';
+    num.classList.remove('warn','bad');
+    if(m>=75)num.style.color='#34c759';
+    else if(m>=50){num.classList.add('warn');}
+    else num.classList.add('bad');
+    $('metricFill').style.width=m+'%';
+  }
+
+  // copy to swatch2 + note
+  function doConvert(){
+    var cmyk=rgbToCmyk(S.rgb.r,S.rgb.g,S.rgb.b);
+    S.cmyk=cmyk;
+    var rgb=cmykToRgbPrint(cmyk.c,cmyk.m,cmyk.y,cmyk.k);
+    $('sw-cmyk').style.background=hex(rgb);
+    $('cmyk-chip').textContent='CMYK '+cmyk.c+' '+cmyk.m+' '+cmyk.y+' '+cmyk.k;
+    $('cval').textContent=cmyk.c; $('mval').textContent=cmyk.m;
+    $('yval').textContent=cmyk.y; $('kval').textContent=cmyk.k;
+    var m=match(S.rgb,rgb);
+    $('cmyk-note').textContent='自动转换 · 印刷观感匹配度约 '+m+'% · 下方可继续微调';
+    // colorize note
+    $('cmyk-note').style.color=m>=75?'#34c759':(m>=50?'#ff9500':'#ff3b30');
+    // copy to adjustable
+    syncAdjToCmyk();
+    // disable note state
+  }
+  function syncAdjToCmyk(){
+    var c=S.cmyk; if(!c)return;
+    crn.value=c.c;mrn.value=c.m;yrn.value=c.y;krn.value=c.k;
+    renderAdj();
+  }
+
+  // ---- events: RGB inputs ----
+  ['r','g','b'].forEach(function(k){
+    var range=$(''+k), num=document.getElementById(k+'num');
+    range.addEventListener('input',function(){num.value=range.value;renderRGB();});
+    num.addEventListener('input',function(){renderRGB();});
+  });
+  // adj inputs
+  ['c','m','y','k'].forEach(function(letter){
+    var range=document.getElementById(letter+'r');
+    var num=document.getElementById(letter+'rnum');
+    range.addEventListener('input',function(){num.value=range.value;renderAdj();});
+    num.addEventListener('input',renderAdj);
+  });
+
+  function applyHex(raw){
+    var h=(raw||'').trim().replace(/^#/,'');
+    if(!/^[0-9a-fA-F]{6}$/.test(h))return false;
+    rRn.value=parseInt(h.substr(0,2),16);
+    rGn.value=parseInt(h.substr(2,2),16);
+    rBn.value=parseInt(h.substr(4,2),16);
+    renderRGB();
+    return true;
+  }
+  var hexEl=$('hex');
+  hexEl.addEventListener('input',function(){applyHex(this.value);});
+  hexEl.addEventListener('blur',function(){if(!applyHex(this.value)){this.value=hex(S.rgb).toUpperCase();}});
+  hexEl.addEventListener('keydown',function(e){if(e.key==='Enter'){this.blur();}});
+  $('copyhex').addEventListener('click',function(){
+    var h=hex(S.rgb).toUpperCase();
+    copy(h);toast('已复制 '+h);
+  });
+
+  // ---- picker ----
+  $('picker').addEventListener('input',function(){
+    var h=this.value.replace('#','');
+    rRn.value=parseInt(h.substr(0,2),16);
+    rGn.value=parseInt(h.substr(2,2),16);
+    rBn.value=parseInt(h.substr(4,2),16);
+    renderRGB();
+  });
+  $('random').addEventListener('click',function(){
+    rRn.value=Math.round(Math.random()*255);
+    rGn.value=Math.round(Math.random()*255);
+    rBn.value=Math.round(Math.random()*255);
+    renderRGB();
+  });
+  $('convert').addEventListener('click',doConvert);
+  $('swap').addEventListener('click',function(){
+    if(!S.cmyk){toast('请先点击「转换 CMYK」');return;}
+    syncAdjToCmyk();
+    toast('已复制到校对色块，可拖动微调');
+  });
+
+  // ---- eyedropper ----
+  $('eyedrop').addEventListener('click',function(){
+    if(!window.EyeDropper){toast('当前浏览器不支持屏幕取色，请用左侧色盘');return;}
+    new EyeDropper().open().then(function(res){
+      var h=res.sRGBHex.replace('#','');
+      rRn.value=parseInt(h.substr(0,2),16);
+      rGn.value=parseInt(h.substr(2,2),16);
+      rBn.value=parseInt(h.substr(4,2),16);
+      renderRGB();
+      toast('已取色 '+res.sRGBHex.toUpperCase());
+    }).catch(function(){});
+  });
+
+  // ---- copy final ----
+  var finalMap={
+    'C':function(s){return String(s.c);},
+    'M':function(s){return String(s.m);},
+    'Y':function(s){return String(s.y);},
+    'K':function(s){return String(s.k);},
+    'ALL':function(s){return 'C'+s.c+' M'+s.m+' Y'+s.y+' K'+s.k;}
+  };
+  document.querySelectorAll('.final-chip').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var key=btn.getAttribute('data-chip');
+      if(!S.cmyk){toast('请先点击「转换 CMYK」');return;}
+      var text=key==='ALL'? 'CMYK '+finalMap.ALL(S.adj) : finalMap[key](S.adj);
+      copy(text);
+      toast('已复制 '+text);
+    });
+  });
+
+  function copy(txt){
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).catch(function(){});
+    }else{
+      var ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();
+    }
+  }
+  function toast(msg){
+    var t=$('toast');t.textContent=msg;t.classList.add('show');
+    clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('show');},1400);
+  }
+
+  // ---- init ----
+  renderRGB();
+  // preset a starting CMYK so the bottom is not empty
+  var cmyk=rgbToCmyk(S.rgb.r,S.rgb.g,S.rgb.b);
+  S.cmyk=cmyk;
+  $('sw-cmyk').style.background=hex(cmykToRgbPrint(cmyk.c,cmyk.m,cmyk.y,cmyk.k));
+  $('cmyk-chip').textContent='CMYK '+cmyk.c+' '+cmyk.m+' '+cmyk.y+' '+cmyk.k;
+  $('cval').textContent=cmyk.c; $('mval').textContent=cmyk.m;
+  $('yval').textContent=cmyk.y; $('kval').textContent=cmyk.k;
+  $('cmyk-note').textContent='已自动转换，拖动下方滑块微调接近目标色';
+  syncAdjToCmyk();
+})();
+</script>
+</body>
+</html>
