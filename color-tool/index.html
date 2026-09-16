@@ -172,6 +172,30 @@
 
   footer{margin-top:28px;color:var(--ink-3);font-size:11px;line-height:1.6}
 
+  /* ---------- Print standard selector ---------- */
+  .settings{margin-bottom:24px}
+  .std-row select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+    font:14px/1.4 -apple-system,sans-serif;color:var(--ink);background:#fff;outline:none;cursor:pointer;transition:border-color .15s ease}
+  .std-row select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,113,227,.15)}
+
+  /* ---------- Batch palette scan ---------- */
+  .batch textarea{width:100%;min-height:110px;border:1px solid var(--line);border-radius:10px;
+    padding:10px 12px;font:13px/1.6 SFMono-Regular,Menlo,Consolas,monospace;color:var(--ink);
+    background:#fafafa;outline:none;resize:vertical;transition:border-color .15s ease,box-shadow .15s ease}
+  .batch textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,113,227,.15);background:#fff}
+  .batchtab{width:100%;border-collapse:collapse;margin-top:14px;font-size:12.5px}
+  .batchtab th{font-size:11px;color:var(--ink-3);font-weight:600;text-align:left;padding:7px 4px;border-bottom:1px solid var(--line)}
+  .batchtab td{padding:9px 4px;border-bottom:1px solid var(--line);vertical-align:middle}
+  .batchtab tr:last-child td{border-bottom:none}
+  .batch-sw{width:26px;height:26px;border-radius:7px;box-shadow:inset 0 0 0 1px var(--line);display:inline-block;vertical-align:middle}
+  .batch-hex{font:600 12px/1 SFMono-Regular,Menlo,monospace;white-space:nowrap}
+  .batch-cmyk{font:600 12px/1 SFMono-Regular,Menlo,monospace;white-space:nowrap}
+  .batch-empty{color:var(--ink-3);font-size:12px;padding:18px 4px;text-align:center}
+  .batch-note{font-size:11px;color:var(--ink-3);margin-top:8px;line-height:1.6}
+  .pan-line{margin-top:10px;margin-bottom:0;font-size:12px;line-height:1.7;
+    background:rgba(94,92,230,.08);border-left:3px solid #5e5ce6;border-radius:4px;padding:8px 12px}
+  .pan-swatch{display:inline-block;width:16px;height:16px;border-radius:4px;vertical-align:-3px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+
   @media (max-width:820px){
     .row{grid-template-columns:1fr}
     .convert{flex-direction:row;justify-content:center;height:auto}
@@ -209,6 +233,20 @@
     </div>
   </section>
 
+  <!-- Print standard -->
+  <section class="card settings">
+    <div class="card-label"><span class="dot" style="background:#5e5ce6"></span>印刷标准</div>
+    <div class="card-sub">选择工厂/纸张对应的印刷标准，屏幕模拟的「纸白 + 墨色」会随之微调，预测更贴合该标准下的实际观感</div>
+    <div class="std-row">
+      <select id="std">
+        <option value="c39">ISO Coated v2 · FOGRA39（涂布 / 铜版纸，欧洲印刷常用）</option>
+        <option value="c51">ISO Coated · FOGRA51（涂布，较新方案、纸白更亮）</option>
+        <option value="swop">US Web Coated · SWOP v2（北美涂布出版常用）</option>
+        <option value="unco">ISO Uncoated v2 · FOGRA29（哑粉 / 胶版 / 白卡纸）</option>
+      </select>
+    </div>
+  </section>
+
   <!-- Row 1: RGB target | convert | CMYK -->
   <div class="row">
     <!-- Left: target RGB -->
@@ -219,6 +257,7 @@
         <span class="chip" id="rgb-chip"></span>
       </div></div>
       <div class="card-sub" id="gamut-warn" style="display:none;color:#ff3b30;margin-bottom:0;margin-top:10px;padding:8px 10px;background:rgba(255,59,48,.08);border-left:3px solid #ff3b30;border-radius:4px"></div>
+      <div class="card-sub pan-line" id="pan-line"></div>
       <div class="field"><span class="tag" style="background:#ff3b30;color:#fff;border-radius:4px">R</span>
         <input type="range" id="r" min="0" max="255" value="220">
         <input class="value" id="rnum" type="number" min="0" max="255" value="220">
@@ -328,6 +367,25 @@
     </div>
   </div>
 
+  <!-- Batch palette scan -->
+  <section class="card batch">
+    <div class="card-label"><span class="dot" style="background:#bf5af2"></span>批量色板筛查</div>
+    <div class="card-sub">粘贴一列 HEX（每行一个），一次标出每个颜色：能否用四色印出、印刷偏色 ΔE 和最近专色参考</div>
+    <textarea id="batchIn" spellcheck="false" placeholder="#D87828
+#00FF00
+#1E88E5
+#003087"></textarea>
+    <div class="btn-row">
+      <button class="btn-mini primary" id="batchGo">开始筛查</button>
+      <button class="btn-mini" id="batchSample">填入示例</button>
+    </div>
+    <table class="batchtab">
+      <thead><tr><th>色块</th><th>HEX</th><th>近似 CMYK</th><th>超色域</th><th>印刷偏色 ΔE</th><th>最近专色</th></tr></thead>
+      <tbody id="batchBody"><tr><td colspan="6" class="batch-empty">输入 HEX 后点击「开始筛查」</td></tr></tbody>
+    </table>
+    <div class="batch-note">注：CMYK 为近似换算、无 ICC，仅供方向参考；专色为常用 Pantone 节选、按色差近似匹配。关键色请用「印刷标准 + 打样」核验。</div>
+  </section>
+
   <footer>右侧 CMYK 色块为<b>印刷观感模拟</b>（Beer-Lambert 减色吸收 + 网点增益，按涂布纸近似），不再与目标色相等；高饱和/超色域颜色会明显变暗变闷并触发警告。屏幕发 RGB 光、纸张反射油墨，物理上无法完全一致——最准确仍以工厂 ICC 配置文件 + 实物打样为准。给工厂的 CMYK 数值始终按理想减法计算。</footer>
 </div>
 
@@ -338,7 +396,7 @@
   "use strict";
 
   // ---- state ----
-  var S = { rgb:{r:220,g:120,b:40}, cmyk:null, adj:{c:0,m:0,y:0,k:0} };
+  var S = { rgb:{r:220,g:120,b:40}, cmyk:null, adj:{c:0,m:0,y:0,k:0}, std:'c39' };
 
   // ---- DOM helpers ----
   function $(id){return document.getElementById(id);}
@@ -366,15 +424,25 @@
   // 「Beer-Lambert 减色吸收 + Murray-Davies 网点增益 + 纸张白点 + 油墨不纯」模拟
   // 真实在纸上的观感：高饱和色会变暗变闷，部分颜色印不出来（超色域）。
   function dotgain(a){a/=100;return a+0.4*a*(1-a);} // 网点增益，50% 处约 +10%
+
+  // 印刷标准的「纸白 + 墨浓度缩放」——不同标准/纸张模拟出不同观感
+  var PROFILE={
+    c39 : {name:'ISO Coated v2 · FOGRA39', pw:0.93, ds:1.00},
+    c51 : {name:'ISO Coated · FOGRA51',    pw:0.94, ds:1.03},
+    swop: {name:'US Web Coated · SWOP v2', pw:0.92, ds:0.95},
+    unco: {name:'ISO Uncoated v2 · FOGRA29',pw:0.87, ds:0.84}
+  };
+
   function cmykToRgbPrint(c,m,y,k){
+    var prof=PROFILE[S.std]||PROFILE.c39;
     // 四色：各自的网点面积、满版油墨反射密度、对 RGB 三通道的吸收系数[受R,受G,受B]
     var inks=[
-      {a:dotgain(c),d:0.95,s:[1.00,0.14,0.08]}, // 青：主吸收红，轻微溢 G/B
-      {a:dotgain(m),d:0.78,s:[0.12,1.00,0.08]}, // 品红：主吸收绿，轻微溢 R/B
-      {a:dotgain(y),d:0.38,s:[0.05,0.10,1.00]}, // 黄：主吸收蓝，轻微溢 R/G
-      {a:dotgain(k),d:1.30,s:[1,1,1]}           // 黑：均匀吸收
+      {a:dotgain(c),d:0.95*prof.ds,s:[1.00,0.14,0.08]}, // 青：主吸收红，轻微溢 G/B
+      {a:dotgain(m),d:0.78*prof.ds,s:[0.12,1.00,0.08]}, // 品红：主吸收绿，轻微溢 R/B
+      {a:dotgain(y),d:0.38*prof.ds,s:[0.05,0.10,1.00]}, // 黄：主吸收蓝，轻微溢 R/G
+      {a:dotgain(k),d:1.30*prof.ds,s:[1,1,1]}           // 黑：均匀吸收
     ];
-    var paper=0.93; // 纸张白点（非纯白）
+    var paper=prof.pw; // 纸张白点（非纯白）
     // Murray-Davies：EACH 色板在「纸(不吸收)」与「满版油墨(吸收)」间按网点面积线性混合，再跨色相乘。
     // 这样中间调不会像直接用指数密度那样被压得过暗。
     function ch(ci){
@@ -407,6 +475,54 @@
     var cmyk=rgbToCmyk(rgb.r,rgb.g,rgb.b);
     var pr=cmykToRgbPrint(cmyk.c,cmyk.m,cmyk.y,cmyk.k);
     return deltaE76(srgb2lab(rgb.r,rgb.g,rgb.b),srgb2lab(pr.r,pr.g,pr.b));
+  }
+
+  // ---- 常用 Pantone 专色库（节选：常用品牌色 / 关键色）。CMYK 为近似 build，无 ICC，仅供参考 ----
+  var PANTONE=[
+    {num:'PMS 102 C',name:'·黄',   hex:'#F7F200', cmyk:'0·2·95·0'},
+    {num:'PMS 109 C',name:'·亮黄', hex:'#FFD100', cmyk:'0·16·83·0'},
+    {num:'PMS 116 C',name:'·黄',   hex:'#FFCD00', cmyk:'0·14·94·0'},
+    {num:'PMS 1235 C',name:'·暖黄',hex:'#FFB81C', cmyk:'0·25·92·0'},
+    {num:'PMS 1505 C',name:'·橙',  hex:'#FF8100', cmyk:'0·50·100·0'},
+    {num:'PMS 165 C',name:'·橙',   hex:'#FF7F32', cmyk:'0·48·100·0'},
+    {num:'PMS 172 C',name:'·橙红', hex:'#FA6900', cmyk:'0·58·95·0'},
+    {num:'PMS 185 C',name:'·红',   hex:'#E4002B', cmyk:'0·100·81·0'},
+    {num:'PMS 186 C',name:'·红',   hex:'#C8102E', cmyk:'0·100·81·11'},
+    {num:'PMS 187 C',name:'·深红', hex:'#B22234', cmyk:'7·92·62·15'},
+    {num:'PMS 199 C',name:'·红',   hex:'#D50032', cmyk:'0·100·76·1'},
+    {num:'PMS 200 C',name:'·红',   hex:'#BA0C2F', cmyk:'2·90·72·21'},
+    {num:'PMS 219 C',name:'·玫红', hex:'#C8105A', cmyk:'0·92·40·0'},
+    {num:'PMS 226 C',name:'·洋红', hex:'#D6007E', cmyk:'0·100·21·0'},
+    {num:'PMS 2727 C',name:'·蓝',  hex:'#0047BB', cmyk:'100·62·0·0'},
+    {num:'PMS 280 C',name:'·藏蓝', hex:'#002E6D', cmyk:'100·55·0·43'},
+    {num:'PMS 286 C',name:'·蓝',   hex:'#0033A0', cmyk:'100·72·0·11'},
+    {num:'PMS 287 C',name:'·蓝',   hex:'#003DA5', cmyk:'100·59·0·0'},
+    {num:'PMS 288 C',name:'·蓝',   hex:'#003087', cmyk:'100·61·0·29'},
+    {num:'PMS 289 C',name:'·藏蓝', hex:'#00205C', cmyk:'100·55·0·54'},
+    {num:'PMS 306 C',name:'·天蓝', hex:'#00B5E2', cmyk:'85·0·9·0'},
+    {num:'PMS 348 C',name:'·绿',   hex:'#00843D', cmyk:'100·0·76·0'},
+    {num:'PMS 349 C',name:'·深绿', hex:'#005C29', cmyk:'100·0·68·52'},
+    {num:'PMS 354 C',name:'·绿',   hex:'#00853D', cmyk:'93·0·68·0'},
+    {num:'PMS 361 C',name:'·绿',   hex:'#008943', cmyk:'89·0·79·0'},
+    {num:'PMS 376 C',name:'·黄绿', hex:'#84BD00', cmyk:'40·0·100·0'},
+    {num:'PMS 419 C',name:'·黑',   hex:'#0B0B0B', cmyk:'0·0·0·100'},
+    {num:'PMS 425 C',name:'·灰',   hex:'#54585A', cmyk:'0·0·0·62'},
+    {num:'PMS 432 C',name:'·蓝灰', hex:'#1A2B3C', cmyk:'82·43·8·59'},
+    {num:'PMS 539 C',name:'·深蓝', hex:'#17375E', cmyk:'100·60·0·50'},
+    {num:'Cool Gray 2 C',name:'·浅灰', hex:'#D5D5D5', cmyk:'0·0·0·12'},
+    {num:'Cool Gray 7 C',name:'·中灰', hex:'#8E8E8E', cmyk:'0·0·0·47'},
+    {num:'Cool Gray 11C',name:'·深灰', hex:'#525252', cmyk:'0·0·0·68'},
+    {num:'Black C',name:'·暖黑', hex:'#2D2926', cmyk:'0·0·0·100'}
+  ];
+  function parseHex(h){h=(h||'').replace('#','');return [parseInt(h.substr(0,2),16),parseInt(h.substr(2,2),16),parseInt(h.substr(4,2),16)];}
+  function findPantone(rgb){
+    var t=srgb2lab(rgb.r,rgb.g,rgb.b), best=null, bd=1e9;
+    for(var i=0;i<PANTONE.length;i++){
+      var p=PANTONE[i], c=parseHex(p.hex), lab=srgb2lab(c[0],c[1],c[2]);
+      var d=deltaE76(t,lab);
+      if(d<bd){bd=d;best=p;}
+    }
+    return best;
   }
 
   // match: normalized rgb distance -> 0..100（基于印刷观感色）
@@ -451,6 +567,8 @@
     }else{
       gw.style.display='none';
     }
+    var pan=findPantone(S.rgb);
+    $('pan-line').innerHTML='最近专色参考：<b>'+pan.num+pan.name+'</b>　<span class="pan-swatch" style="background:'+pan.hex+'"></span>　CMYK '+pan.cmyk;
     updateMatch();
   }
   function clamp(v){if(isNaN(v))return 0;return Math.max(0,Math.min(255,Math.round(v)));}
@@ -663,6 +781,53 @@
     var t=$('toast');t.textContent=msg;t.classList.add('show');
     clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('show');},1400);
   }
+
+  // ---- print standard switch ----
+  $('std').addEventListener('change',function(){
+    S.std=this.value;
+    renderRGB(); // 刷新超色域警告 + 最近专色 + 校对区（adj 保持不变）
+    if(S.cmyk){
+      var rgb=cmykToRgbPrint(S.cmyk.c,S.cmyk.m,S.cmyk.y,S.cmyk.k);
+      $('sw-cmyk').style.background=hex(rgb);
+      var m=match(S.rgb,rgb);
+      $('cmyk-note').textContent='自动转换 · 印刷观感匹配度约 '+m+'% · 下方可继续微调';
+      $('cmyk-note').style.color=m>=75?'#34c759':(m>=50?'#ff9500':'#ff3b30');
+    }
+  });
+
+  // ---- batch palette scan ----
+  function hexToRgb(h){h=(h||'').trim().replace('#','');if(!/^[0-9a-fA-F]{6}$/.test(h))return null;return {r:parseInt(h.substr(0,2),16),g:parseInt(h.substr(2,2),16),b:parseInt(h.substr(4,2),16)};}
+  function runBatch(){
+    var lines=$('batchIn').value.split(/\r?\n/);
+    var body=$('batchBody'); body.innerHTML='';
+    var any=false;
+    lines.forEach(function(line){
+      line=(line||'').trim(); if(!line)return;
+      var rgb=hexToRgb(line); if(!rgb)return;
+      var cmyk=rgbToCmyk(rgb.r,rgb.g,rgb.b);
+      var de=printDeltaE(rgb);
+      var warn=de>12;
+      var pan=findPantone(rgb);
+      any=true;
+      var tr=document.createElement('tr');
+      tr.innerHTML=''
+        +'<td><span class="batch-sw" style="background:#'+line.replace('#','').toUpperCase()+'"></span></td>'
+        +'<td class="batch-hex">#'+line.replace('#','').toUpperCase()+'</td>'
+        +'<td class="batch-cmyk">'+cmyk.c+'-'+cmyk.m+'-'+cmyk.y+'-'+cmyk.k+'</td>'
+        +'<td class="'+(warn?'bad':'ok')+'">'+(warn?'超色域':'可印')+'</td>'
+        +'<td class="'+(de>12?'bad':(de>6?'mid':'ok'))+'">≈'+Math.round(de)+'</td>'
+        +'<td>'+pan.num+pan.name+'</td>';
+      body.appendChild(tr);
+    });
+    if(!any){ body.innerHTML='<tr><td colspan="6" class="batch-empty">未识别到有效 HEX（每行一个，如 #D87828）</td></tr>'; toast('未筛查到有效色');return; }
+    toast('筛查完成，共 '+lines.filter(function(l){return /^[0-9a-fA-F]{6}$/.test(l.trim().replace('#',''));}).length+' 色');
+  }
+  $('batchGo').addEventListener('click',runBatch);
+  $('batchSample').addEventListener('click',function(){
+    $('batchIn').value='#D87828\n#00FF00\n#1E88E5\n#FF3B30\n#B98D2A\n#003087';
+    runBatch();
+  });
+  $('batchIn').addEventListener('keydown',function(e){ if(e.key==='Enter'&&e.ctrlKey) runBatch(); });
 
   // ---- init ----
   renderRGB();
