@@ -91,7 +91,7 @@
   .field .tag{flex:none;width:18px;font:600 12px/1 SFMono-Regular,Menlo,monospace;color:var(--ink-3);text-align:center}
   .field .kind{flex:none;width:34px;font-size:12px;color:var(--ink-2)}
   .field input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:22px;background:transparent;cursor:pointer}
-  .field input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:var(--track,#e8e8ed)}
+  .field input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:transparent}
   .field input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
     width:20px;height:20px;border-radius:50%;margin-top:-8px;
     background:#fff;border:1px solid rgba(0,0,0,.12);box-shadow:0 1px 4px rgba(0,0,0,.2)}
@@ -129,11 +129,32 @@
   .metric-num.warn{color:#ff9500}
   .metric-num.bad{color:#ff3b30}
 
-  .match-grid{display:grid;grid-template-columns:1fr 1.6fr;gap:26px;align-items:center}
-  .match-swatch{height:220px;border-radius:var(--radius-sm);box-shadow:inset 0 0 0 1px var(--line);position:relative}
-  .match-swatch .copy{position:absolute;left:12px;bottom:12px;font:600 12px/1 SFMono-Regular,Menlo,monospace;
-    color:#fff;background:rgba(0,0,0,.38);backdrop-filter:blur(4px);padding:5px 8px;border-radius:6px}
+  .match-grid{display:grid;grid-template-columns:1.15fr 1.85fr;gap:26px;align-items:center}
   .match-controls .hint{font-size:12px;color:var(--ink-2);margin-bottom:6px}
+
+  /* ---------- Goal vs Adjust swatch pair ---------- */
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .pair-card{position:relative;border-radius:var(--radius-sm);box-shadow:inset 0 0 0 1px var(--line);height:196px}
+  .pair-tag{position:absolute;left:10px;top:10px;font:600 11px/1 -apple-system,sans-serif;color:#fff;
+    background:rgba(0,0,0,.40);backdrop-filter:blur(4px);padding:5px 8px;border-radius:6px;letter-spacing:.02em}
+  .pair-chip{position:absolute;left:10px;bottom:10px;font:600 11px/1 SFMono-Regular,Menlo,monospace;color:#fff;
+    background:rgba(0,0,0,.40);backdrop-filter:blur(4px);padding:4px 6px;border-radius:6px;letter-spacing:.02em}
+  .pair-chip.on-dark{color:#1d1d1f}
+  .delta-badge{position:absolute;right:10px;top:10px;font:700 11px/1 -apple-system,sans-serif;color:#fff;
+    padding:5px 8px;border-radius:980px}
+
+  /* ---------- Difference diagnosis ---------- */
+  .diagnosis{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+  .diag-title{font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:10px}
+  .diag-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .diag-cell{background:#f5f5f7;border-radius:10px;padding:9px 10px;min-width:0}
+  .diag-cell .k{font-size:11px;color:var(--ink-3)}
+  .diag-cell .v{font-size:14px;font-weight:650;margin-top:2px;font-variant-numeric:tabular-nums}
+  .diag-cell .d{font-size:10.5px;color:var(--ink-3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .suggest{margin-top:10px;font-size:12.5px;line-height:1.7;color:var(--ink);
+    background:#f0f6ff;border-left:3px solid var(--accent);border-radius:4px;padding:10px 12px}
+  .suggest b{color:var(--accent)}
+  .good{color:#34c759}
   .match-final{display:flex;align-items:center;gap:12px;margin-top:20px;padding-top:16px;
     border-top:1px solid var(--line);flex-wrap:wrap}
   .match-final .lab{font-size:12px;color:var(--ink-2);font-weight:600}
@@ -259,9 +280,12 @@
     </div>
 
     <div class="match-grid">
-      <div class="match-swatch" id="sw-match"><span class="copy" id="match-chip"></span></div>
+      <div class="pair">
+        <div class="pair-card" id="goalSw"><span class="pair-tag">目标 · RGB</span><span class="pair-chip" id="goalChip"></span></div>
+        <div class="pair-card" id="adjSw"><span class="pair-tag">校对 · CMYK</span><span class="pair-chip on-dark" id="adjChip"></span><span class="delta-badge" id="deltaBadge">ΔE —</span></div>
+      </div>
       <div class="match-controls">
-        <div class="hint">拖动微调，实时对比右侧色块与匹配度</div>
+        <div class="hint">拖动 C/M/Y/K 微调，「校对 · CMYK」实时逼近左侧「目标 · RGB」</div>
         <div class="field"><span class="tag" style="background:#00bfe0;color:#fff;border-radius:4px">C</span>
           <input type="range" id="cr" min="0" max="100" value="0">
           <input class="value" id="crnum" type="number" min="0" max="100" value="0">
@@ -277,6 +301,17 @@
         <div class="field"><span class="tag" style="background:#1d1d1f;color:#fff;border-radius:4px">K</span>
           <input type="range" id="kr" min="0" max="100" value="0">
           <input class="value" id="krnum" type="number" min="0" max="100" value="0">
+        </div>
+
+        <div class="diagnosis">
+          <div class="diag-title">差异诊断 · 校对色相对目标色</div>
+          <div class="diag-grid">
+            <div class="diag-cell"><div class="k">明度 ΔL</div><div class="v" id="dL">—</div><div class="d" id="dLd">—</div></div>
+            <div class="diag-cell"><div class="k">彩度 ΔC</div><div class="v" id="dC">—</div><div class="d" id="dCd">—</div></div>
+            <div class="diag-cell"><div class="k">色相 ΔH</div><div class="v" id="dH">—</div><div class="d" id="dHd">—</div></div>
+            <div class="diag-cell"><div class="k">总色差 ΔE</div><div class="v" id="dE">—</div><div class="d" id="dEd">—</div></div>
+          </div>
+          <div class="suggest" id="suggest">调整后会在这里给出建议</div>
         </div>
 
         <div class="match-final">
@@ -383,7 +418,10 @@
 
   // ---- fill slider track ----
   function fill(el,ratio,color){
-    el.style.background='linear-gradient(90deg,'+color+' 0%,'+color+' '+ratio+'%, #e8e8ed '+ratio+'%)';
+    var pct=Math.round(ratio*100);
+    var g='linear-gradient(90deg,'+color+' 0%,'+color+' '+pct+'%, #e8e8ed '+pct+'%)';
+    el.style.background=g;                      // WebKit：轨道透明时显示
+    el.style.setProperty('--track',g);          // Firefox：轨道用 var(--track)
   }
 
   // ---- render ----
@@ -399,6 +437,9 @@
     $('hex').value=c.toUpperCase();
     var lc=luma(r,g,b)>.55;
     $('rgb-chip').style.color=lc? '#1d1d1f':'#fff';
+    $('goalSw').style.background=c;
+    $('goalChip').textContent=c.toUpperCase();
+    $('goalChip').style.color=lc? '#1d1d1f':'#fff';
     // 超色域警告：理想 CMYK 在印刷观感下无法还原目标色
     var de=printDeltaE(S.rgb);
     var warn=de>12;
@@ -420,9 +461,9 @@
     S.adj={c:c,m:m,y:y,k:k};
     var rgb=cmykToRgbPrint(c,m,y,k);
     var col=hex(rgb);
-    $('sw-match').style.background=col;
-    $('match-chip').textContent='CMYK '+c+' '+m+' '+y+' '+k;
-    var ch=$('match-chip'); ch.style.color=luma(rgb.r,rgb.g,rgb.b)>.55? '#1d1d1f':'#fff';
+    $('adjSw').style.background=col;
+    $('adjChip').textContent=c+' '+m+' '+y+' '+k;
+    var ch=$('adjChip'); ch.style.color=luma(rgb.r,rgb.g,rgb.b)>.55? '#1d1d1f':'#fff';
     fill(cr,c,'#00bfe0');fill(mr,m,'#e14b8a');fill(yr,y,'#ffd60a');fill(kr,k,'#2c2c2e');
     setFinal();
     updateMatch();
@@ -453,6 +494,55 @@
     else if(m>=50){num.classList.add('warn');}
     else num.classList.add('bad');
     $('metricFill').style.width=m+'%';
+    updateDiagnosis();
+  }
+
+  // ---- 差异诊断：校对色相对目标色的 L/C/H 差异 + 调哪个值的建议 ----
+  function setDiag(id,val,cls,desc){
+    $(id).textContent=val;
+    $(id).style.color=cls;
+    $(id+'d').textContent=desc;
+  }
+  function updateDiagnosis(){
+    var trg=srgb2lab(S.rgb.r,S.rgb.g,S.rgb.b);
+    var ar=cmykToRgbPrint(S.adj.c,S.adj.m,S.adj.y,S.adj.k);
+    var prt=srgb2lab(ar.r,ar.g,ar.b);
+    var dL=prt.L-trg.L;
+    var Ct=Math.sqrt(trg.a*trg.a+trg.bB*trg.bB);
+    var Cp=Math.sqrt(prt.a*prt.a+prt.bB*prt.bB);
+    var dC=Cp-Ct;
+    var hT=Math.atan2(trg.bB,trg.a)*180/Math.PI;
+    var hP=Math.atan2(prt.bB,prt.a)*180/Math.PI;
+    var dH=hP-hT; while(dH>180)dH-=360; while(dH<-180)dH+=360;
+    var aH=Math.abs(dH);
+    var dE=deltaE76(trg,prt);
+    var sev=function(v){return v>2.6?(v>6?'#ff3b30':'#ff9500'):'#34c759';};
+    setDiag('dL',(dL>=0?'+':'')+dL.toFixed(1),sev(Math.abs(dL)), dL>=0?'比目标偏亮':'比目标偏暗');
+    setDiag('dC',(dC>=0?'+':'')+dC.toFixed(1),sev(Math.abs(dC)), dC>=0?'更鲜艳':'更灰/淡');
+    setDiag('dH',aH.toFixed(0)+'°',sev(aH), aH>10?'色相偏移明显':'色相接近');
+    setDiag('dE',dE.toFixed(1),sev(dE), dE<6?'近似，可送样':(dE<12?'建议微调':'差异大，需打样'));
+    var bd=$('deltaBadge');
+    bd.textContent='ΔE '+Math.round(dE);
+    bd.style.background=dE<6?'#34c759':(dE<12?'#ff9500':'#ff3b30');
+    // 建议：根据最大差异维度给"调哪个值、往哪个方向"
+    var sug=$('suggest');sug.classList.remove('good');
+    if(dE<6){sug.innerHTML='<b>已经很接近</b>（ΔE<6，肉眼难分辨）。要更准请靠打样/ICC。';sug.classList.add('good');return;}
+    var t=rgbToCmyk(S.rgb.r,S.rgb.g,S.rgb.b);
+    var fam=t.c>=t.m&&t.c>=t.y?'C':(t.m>=t.y?'M':'Y');
+    var famCn=fam==='C'?'青':(fam==='M'?'品红':'黄');
+    var aL=Math.abs(dL),aC=Math.abs(dC);
+    var parts=[];
+    if(aC>=aL&&aC>=aH){
+      parts.push(dC<0?'彩度不足(偏灰/淡) → 加 <b>'+fam+'('+famCn+')</b> 提彩'
+                     :'彩度过高 → 减 <b>'+fam+'('+famCn+')</b>');
+    }else if(aL>=aC&&aL>=aH){
+      parts.push(dL<0?'偏暗 → 减 <b>K(黑)</b> 提亮'
+                     :'偏亮 → 加 <b>K(黑)</b> 压暗');
+    }else{
+      parts.push('色相偏移 → 重点调 <b>'+fam+'('+famCn+')</b> 的方向');
+    }
+    if(aL>5&&!(aL>=aC&&aL>=aH)) parts.push(dL<0?'整体偏暗，也可微减墨量':'整体偏亮，可微加墨量');
+    sug.innerHTML='建议：'+parts.join('　');
   }
 
   // copy to swatch2 + note
